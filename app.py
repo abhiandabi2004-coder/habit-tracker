@@ -5,8 +5,6 @@ from habit_engine import add_habit, log_habit, get_user_habits
 from dashboard import show_dashboard
 from pdf_export import generate_pdf_report
 
-# ---------------- APP CONFIG ---------------- #
-
 st.set_page_config(page_title="Habit Tracker", layout="wide")
 create_tables()
 
@@ -17,7 +15,7 @@ st.title("🔥 Habit Tracker Application")
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
-# ---------------- SIDEBAR AUTH MENU ---------------- #
+# ---------------- AUTH ---------------- #
 
 menu = ["Login", "Register"]
 choice = st.sidebar.selectbox("Menu", menu)
@@ -38,11 +36,8 @@ if choice == "Register":
         submit = st.form_submit_button("Register")
 
         if submit:
-            if username.strip() != "" and password.strip() != "":
-                register_user(name, age, gender, occupation, username, password)
-                st.success("Account Created Successfully")
-            else:
-                st.warning("Username and Password required")
+            register_user(name, age, gender, occupation, username, password)
+            st.success("Account Created Successfully")
 
 # ---------------- LOGIN ---------------- #
 
@@ -72,56 +67,72 @@ if st.session_state.user_id:
 
     app_menu = st.sidebar.radio(
         "Navigate",
-        ["Add Habit", "Track Habit", "Dashboard", "Download Report", "Logout"]
+        ["Add Habits", "Track Habits", "Dashboard", "Download Report", "Logout"]
     )
 
-    # ---------------- ADD HABIT (UNLIMITED) ---------------- #
+    # ---------------- ADD MULTIPLE HABITS ---------------- #
 
-    if app_menu == "Add Habit":
+    if app_menu == "Add Habits":
 
-        st.subheader("➕ Add Your Habits (Unlimited)")
+        st.subheader("➕ Add Multiple Habits")
 
-        habit_name = st.text_input("Enter Habit Name")
-        target_days = st.number_input("Target Days", 1, 365)
+        num_habits = st.number_input(
+            "How many habits do you want to add?",
+            min_value=1,
+            max_value=20,
+            step=1
+        )
 
-        if st.button("Add Habit"):
-            if habit_name.strip() != "":
-                add_habit(st.session_state.user_id, habit_name, target_days)
-                st.success(f"{habit_name} added successfully!")
-                st.rerun()
-            else:
-                st.warning("Habit name cannot be empty.")
+        habit_names = []
 
-        # Display all habits
+        for i in range(int(num_habits)):
+            habit = st.text_input(f"Enter Habit {i+1}", key=f"habit_input_{i}")
+            habit_names.append(habit)
+
+        if st.button("Save Habits"):
+            for habit in habit_names:
+                if habit.strip() != "":
+                    add_habit(st.session_state.user_id, habit, 30)
+            st.success("Habits Added Successfully!")
+            st.rerun()
+
+        # Show existing habits
         st.subheader("📋 Your Habit List")
-
         habits = get_user_habits(st.session_state.user_id)
 
         if habits:
             for i, habit in enumerate(habits, start=1):
-                st.write(f"Habit {i}: {habit[2]} (Target: {habit[3]} days)")
+                st.write(f"Habit {i}: {habit[2]}")
         else:
             st.info("No habits added yet.")
 
-    # ---------------- TRACK HABIT ---------------- #
+    # ---------------- TRACK HABITS WITH CHECKBOX ---------------- #
 
-    elif app_menu == "Track Habit":
+    elif app_menu == "Track Habits":
 
-        st.subheader("✅ Mark Today's Habits")
+        st.subheader("✅ Complete Today's Habits")
 
         habits = get_user_habits(st.session_state.user_id)
 
         if not habits:
-            st.warning("No habits found. Add habits first.")
+            st.warning("Add habits first.")
         else:
+            selected_habits = []
+
             for habit in habits:
-                if st.button(
-                    f"Complete: {habit[2]}",
-                    key=f"log_{habit[0]}"
-                ):
+                checked = st.checkbox(
+                    habit[2],
+                    key=f"check_{habit[0]}"
+                )
+                if checked:
+                    selected_habits.append(habit)
+
+            if st.button("Submit Today's Progress"):
+                for habit in selected_habits:
                     log_habit(habit[0])
-                    st.success(f"{habit[2]} marked as completed!")
-                    st.rerun()
+
+                st.success("Habits Logged Successfully!")
+                st.rerun()
 
     # ---------------- DASHBOARD ---------------- #
 
@@ -131,9 +142,6 @@ if st.session_state.user_id:
     # ---------------- DOWNLOAD REPORT ---------------- #
 
     elif app_menu == "Download Report":
-
-        st.subheader("📄 Download Progress Report")
-
         file_path = generate_pdf_report(st.session_state.user_id)
 
         with open(file_path, "rb") as f:
