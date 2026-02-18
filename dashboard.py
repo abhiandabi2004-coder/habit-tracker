@@ -5,30 +5,45 @@ from database import connect_db
 from habit_engine import calculate_streak
 
 def show_dashboard(user_id):
+
     conn = connect_db()
+
     df = pd.read_sql("""
-    SELECT habits.habit_name, habit_logs.date
-    FROM habit_logs
-    JOIN habits ON habits.id = habit_logs.habit_id
-    WHERE habits.user_id=?
+        SELECT habits.id, habits.habit_name, habit_logs.date
+        FROM habits
+        LEFT JOIN habit_logs ON habits.id = habit_logs.habit_id
+        WHERE habits.user_id=?
     """, conn, params=(user_id,))
 
+    conn.close()
+
     if df.empty:
-        st.warning("No Data Available")
+        st.warning("No data available.")
         return
 
-    st.subheader("Habit Progress Over Time")
+    st.subheader("📈 Habit Completion Trend")
 
-    df['date'] = pd.to_datetime(df['date'])
-    df_group = df.groupby(['date']).size().reset_index(name='count')
+    df = df.dropna()
 
-    fig = px.line(df_group, x="date", y="count", title="Daily Habit Completion")
-    st.plotly_chart(fig)
+    if not df.empty:
+        df['date'] = pd.to_datetime(df['date'])
+        daily_counts = df.groupby('date').size().reset_index(name='count')
+
+        fig = px.line(
+            daily_counts,
+            x='date',
+            y='count',
+            markers=True,
+            title="Daily Habit Completion"
+        )
+
+        st.plotly_chart(fig)
 
     st.subheader("🔥 Streaks")
-    habits = df['habit_name'].unique()
 
-    for habit in habits:
-        habit_id = pd.read_sql("SELECT id FROM habits WHERE habit_name=?", conn, params=(habit,)).iloc[0][0]
+    habit_ids = df['id'].unique()
+
+    for habit_id in habit_ids:
+        habit_name = df[df['id'] == habit_id]['habit_name'].iloc[0]
         streak = calculate_streak(habit_id)
-        st.write(f"{habit}: {streak} Days")
+        st.write(f"{habit_name}: {streak} days")
