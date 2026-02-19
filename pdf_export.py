@@ -14,10 +14,10 @@ def generate_pdf_report(user_id):
     doc = SimpleDocTemplate(
         file_path,
         pagesize=landscape(A4),
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
-        bottomMargin=30
+        rightMargin=20,
+        leftMargin=20,
+        topMargin=20,
+        bottomMargin=20
     )
 
     elements = []
@@ -26,19 +26,18 @@ def generate_pdf_report(user_id):
 
     title_style = ParagraphStyle(
         name="TitleStyle",
-        fontSize=30,
-        spaceAfter=20
+        fontSize=28,
+        spaceAfter=15
     )
 
     elements.append(Paragraph("HABIT TRACKER REPORT", title_style))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 15))
 
-    # ---------------- GET DATA ---------------- #
+    # ---------------- FETCH DATA ---------------- #
 
     conn = connect_db()
     cursor = conn.cursor()
 
-    # Fetch habits
     cursor.execute("""
         SELECT id, habit_name
         FROM habits
@@ -46,7 +45,6 @@ def generate_pdf_report(user_id):
     """, (user_id,))
     habits = cursor.fetchall()
 
-    # Fetch logs
     cursor.execute("""
         SELECT habit_id, date
         FROM habit_logs
@@ -57,13 +55,10 @@ def generate_pdf_report(user_id):
 
     # Convert logs to dictionary
     log_dict = {}
-
     for habit_id, date in logs:
-        if habit_id not in log_dict:
-            log_dict[habit_id] = []
-        log_dict[habit_id].append(date)
+        log_dict.setdefault(habit_id, []).append(date)
 
-    # ---------------- CREATE GRID ---------------- #
+    # ---------------- CREATE TABLE ---------------- #
 
     header_row = ["HABIT"] + [str(i) for i in range(1, 32)]
     table_data = [header_row]
@@ -75,7 +70,6 @@ def generate_pdf_report(user_id):
         row = [habit_name]
 
         for day in range(1, 32):
-
             date_str = f"{current_month}-{str(day).zfill(2)}"
 
             if habit_id in log_dict and date_str in log_dict[habit_id]:
@@ -86,27 +80,36 @@ def generate_pdf_report(user_id):
         table_data.append(row)
 
     if not habits:
-        table_data.append(["No habits found"] + [""] * 31)
+        table_data.append(["No habits added"] + [""] * 31)
 
-    # Column widths
-    col_widths = [2.5 * inch] + [0.4 * inch] * 31
+    # ----------- BETTER COLUMN WIDTHS ----------- #
 
-    table = Table(table_data, colWidths=col_widths)
+    page_width, page_height = landscape(A4)
+
+    habit_column_width = 2.2 * inch
+    remaining_width = page_width - habit_column_width - 40
+    day_column_width = remaining_width / 31
+
+    col_widths = [habit_column_width] + [day_column_width] * 31
+
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
 
     table.setStyle(TableStyle([
 
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
 
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
 
         ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
 
-        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (0, -1), 6),
+        ('RIGHTPADDING', (0, 0), (0, -1), 6),
 
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTSIZE', (0, 1), (0, -1), 9),
+
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
 
     ]))
 
