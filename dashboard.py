@@ -22,22 +22,46 @@ def show_dashboard(user_id):
 
     conn.close()
 
-    st.subheader("📈 Habit Performance")
-
     if df.empty:
         st.info("No activity logged yet.")
-    else:
-        df["date"] = pd.to_datetime(df["date"])
+        return
 
-        fig = px.line(
-            df,
+    df["date"] = pd.to_datetime(df["date"])
+
+    # ---------------- STUDY HABITS ---------------- #
+
+    study_df = df[df["habit_name"].str.lower().str.contains("study")]
+
+    if not study_df.empty:
+        st.subheader("📚 Study Hours Progress")
+
+        fig1 = px.line(
+            study_df,
             x="date",
             y="value",
             color="habit_name",
             markers=True,
         )
+        st.plotly_chart(fig1)
 
-        st.plotly_chart(fig)
+    # ---------------- OTHER HABITS ---------------- #
+
+    other_df = df[~df["habit_name"].str.lower().str.contains("study")]
+
+    if not other_df.empty:
+        st.subheader("✅ Habit Completion Count")
+
+        summary = other_df.groupby("habit_name")["value"].sum().reset_index()
+
+        fig2 = px.bar(
+            summary,
+            x="habit_name",
+            y="value",
+            color="habit_name",
+        )
+        st.plotly_chart(fig2)
+
+    # ---------------- STREAK ---------------- #
 
     st.subheader("🔥 Streaks")
 
