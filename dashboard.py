@@ -4,30 +4,39 @@ import plotly.express as px
 from database import connect_db
 from habit_engine import calculate_streak
 
+
 def show_dashboard(user_id):
+
+    st.subheader("📊 Habit Dashboard")
 
     conn = connect_db()
 
-    df = pd.read_sql("""
-        SELECT habits.id, habits.habit_name, habit_logs.date
+    # Fetch all habits for the user
+    habits_df = pd.read_sql("""
+        SELECT id, habit_name
         FROM habits
-        LEFT JOIN habit_logs ON habits.id = habit_logs.habit_id
-        WHERE habits.user_id=?
+        WHERE user_id=?
     """, conn, params=(user_id,))
+
+    # Fetch habit logs
+    logs_df = pd.read_sql("""
+        SELECT habit_id, date
+        FROM habit_logs
+    """, conn)
 
     conn.close()
 
-    if df.empty:
-        st.warning("No data available.")
-        return
+    # ---------------- GRAPH SECTION ---------------- #
 
     st.subheader("📈 Habit Completion Trend")
 
-    df = df.dropna()
+    if logs_df.empty:
+        st.info("No habit activity yet.")
+    else:
+        logs_df['date'] = pd.to_datetime(logs_df['date'])
 
-    if not df.empty:
-        df['date'] = pd.to_datetime(df['date'])
-        daily_counts = df.groupby('date').size().reset_index(name='count')
+        # Count total habits completed per day
+        daily_counts = logs_df.groupby('date').size().reset_index(name='count')
 
         fig = px.line(
             daily_counts,
@@ -39,11 +48,18 @@ def show_dashboard(user_id):
 
         st.plotly_chart(fig)
 
+    # ---------------- STREAK SECTION ---------------- #
+
     st.subheader("🔥 Streaks")
 
-    habit_ids = df['id'].unique()
+    if habits_df.empty:
+        st.info("No habits added yet.")
+        return
 
-    for habit_id in habit_ids:
-        habit_name = df[df['id'] == habit_id]['habit_name'].iloc[0]
+    for _, row in habits_df.iterrows():
+        habit_id = row['id']
+        habit_name = row['habit_name']
+
         streak = calculate_streak(habit_id)
+
         st.write(f"{habit_name}: {streak} days")
