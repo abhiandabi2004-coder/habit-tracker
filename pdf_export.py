@@ -3,14 +3,14 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import inch
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
+from datetime import datetime
 from database import connect_db
 
 
 def generate_pdf_report(user_id):
 
-    file_path = "Habit_Tracker_Printable.pdf"
+    file_path = "Habit_Tracker_Report.pdf"
+
     doc = SimpleDocTemplate(
         file_path,
         pagesize=landscape(A4),
@@ -26,49 +26,67 @@ def generate_pdf_report(user_id):
 
     title_style = ParagraphStyle(
         name="TitleStyle",
-        fontSize=36,
+        fontSize=30,
         spaceAfter=20
     )
 
-    elements.append(Paragraph("HABIT TRACKER", title_style))
+    elements.append(Paragraph("HABIT TRACKER REPORT", title_style))
     elements.append(Spacer(1, 20))
 
-    # ---------------- FETCH HABITS ---------------- #
+    # ---------------- GET DATA ---------------- #
 
     conn = connect_db()
     cursor = conn.cursor()
 
+    # Fetch habits
     cursor.execute("""
-        SELECT habit_name
+        SELECT id, habit_name
         FROM habits
         WHERE user_id=?
     """, (user_id,))
-
     habits = cursor.fetchall()
+
+    # Fetch logs
+    cursor.execute("""
+        SELECT habit_id, date
+        FROM habit_logs
+    """)
+    logs = cursor.fetchall()
+
     conn.close()
 
-    habit_names = [h[0] for h in habits]
+    # Convert logs to dictionary
+    log_dict = {}
 
-    # If no habits exist, add blank rows
-    if not habit_names:
-        habit_names = [""] * 15
-
-    # Limit printable rows (can increase if needed)
-    max_rows = max(len(habit_names), 15)
+    for habit_id, date in logs:
+        if habit_id not in log_dict:
+            log_dict[habit_id] = []
+        log_dict[habit_id].append(date)
 
     # ---------------- CREATE GRID ---------------- #
 
-    # Header row: Day numbers
     header_row = ["HABIT"] + [str(i) for i in range(1, 32)]
-
     table_data = [header_row]
 
-    for i in range(max_rows):
-        if i < len(habit_names):
-            row = [habit_names[i]] + [""] * 31
-        else:
-            row = [""] + [""] * 31
+    current_month = datetime.now().strftime("%Y-%m")
+
+    for habit_id, habit_name in habits:
+
+        row = [habit_name]
+
+        for day in range(1, 32):
+
+            date_str = f"{current_month}-{str(day).zfill(2)}"
+
+            if habit_id in log_dict and date_str in log_dict[habit_id]:
+                row.append("✔")
+            else:
+                row.append("")
+
         table_data.append(row)
+
+    if not habits:
+        table_data.append(["No habits found"] + [""] * 31)
 
     # Column widths
     col_widths = [2.5 * inch] + [0.4 * inch] * 31
@@ -77,13 +95,11 @@ def generate_pdf_report(user_id):
 
     table.setStyle(TableStyle([
 
-        # Grid
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
 
-        # Header style
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
 
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
 
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
@@ -95,21 +111,6 @@ def generate_pdf_report(user_id):
     ]))
 
     elements.append(table)
-
-    # ---------------- FOOTER QUOTE ---------------- #
-
-    elements.append(Spacer(1, 20))
-
-    footer_style = ParagraphStyle(
-        name="FooterStyle",
-        fontSize=10,
-        textColor=colors.grey
-    )
-
-    elements.append(Paragraph(
-        "“Good habits are worth being fanatical about.” – John Irving",
-        footer_style
-    ))
 
     doc.build(elements)
 
