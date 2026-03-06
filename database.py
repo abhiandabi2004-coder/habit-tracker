@@ -1,15 +1,19 @@
-import sqlite3
+import psycopg2
+
+DATABASE_URL = "postgresql://postgres:HabitTracker@123@db.tzntcjmbtvextrydkjjq.supabase.co:5432/postgres"
 
 def connect_db():
-    return sqlite3.connect("habits.db", check_same_thread=False)
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
 
 def create_tables():
     conn = connect_db()
     cursor = conn.cursor()
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
         name TEXT,
         age INTEGER,
         gender TEXT,
@@ -20,19 +24,19 @@ def create_tables():
     """)
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS habits(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
+    CREATE TABLE IF NOT EXISTS habits (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
         habit_name TEXT,
         target_days INTEGER
     )
     """)
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS habit_logs(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        habit_id INTEGER,
-        date TEXT,
+    CREATE TABLE IF NOT EXISTS habit_logs (
+        id SERIAL PRIMARY KEY,
+        habit_id INTEGER REFERENCES habits(id),
+        date DATE,
         value INTEGER
     )
     """)
