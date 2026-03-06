@@ -8,25 +8,25 @@ def add_habit(user_id, habit_name, target_days):
 
     cursor.execute(
         """
-        INSERT INTO habits(user_id, habit_name, target_days)
+        INSERT INTO habits (user_id, habit_name, target_days)
         VALUES (%s, %s, %s)
         """,
-        (user_id, habit_name, target_days),
+        (user_id, habit_name, target_days)
     )
 
     conn.commit()
     conn.close()
 
 
-def get_habits(user_id):
+def get_user_habits(user_id):
     conn = connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        SELECT * FROM habits WHERE user_id=%s
+        SELECT * FROM habits WHERE user_id = %s
         """,
-        (user_id,),
+        (user_id,)
     )
 
     habits = cursor.fetchall()
@@ -35,57 +35,68 @@ def get_habits(user_id):
     return habits
 
 
-def mark_complete(habit_id):
+def update_habit(habit_id, habit_name, target_days):
     conn = connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        INSERT INTO habit_logs(habit_id, date, value)
-        VALUES (%s, %s, %s)
+        UPDATE habits
+        SET habit_name = %s, target_days = %s
+        WHERE id = %s
         """,
-        (habit_id, date.today(), 1),
+        (habit_name, target_days, habit_id)
     )
 
     conn.commit()
     conn.close()
 
 
-def get_streak(habit_id):
+def delete_habit(habit_id):
     conn = connect_db()
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        SELECT COUNT(*) FROM habit_logs
-        WHERE habit_id=%s
+        DELETE FROM habits WHERE id = %s
         """,
-        (habit_id,),
+        (habit_id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def log_habit(habit_id, value=1):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO habit_logs (habit_id, date, value)
+        VALUES (%s, %s, %s)
+        """,
+        (habit_id, date.today(), value)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def calculate_streak(habit_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT COUNT(*)
+        FROM habit_logs
+        WHERE habit_id = %s
+        """,
+        (habit_id,)
     )
 
     streak = cursor.fetchone()[0]
 
     conn.close()
     return streak
-
-
-def get_progress(user_id):
-    conn = connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT habit_name, COUNT(habit_logs.id)
-        FROM habits
-        LEFT JOIN habit_logs
-        ON habits.id = habit_logs.habit_id
-        WHERE habits.user_id=%s
-        GROUP BY habit_name
-        """,
-        (user_id,),
-    )
-
-    data = cursor.fetchall()
-
-    conn.close()
-    return data
