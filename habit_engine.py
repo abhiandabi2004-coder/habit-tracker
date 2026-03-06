@@ -6,10 +6,13 @@ def add_habit(user_id, habit_name, target_days):
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("""
-    INSERT INTO habits(user_id, habit_name, target_days)
-    VALUES (%s, %s, %s)
-    """, (user_id, habit_name, target_days))
+    cursor.execute(
+        """
+        INSERT INTO habits(user_id, habit_name, target_days)
+        VALUES (%s, %s, %s)
+        """,
+        (user_id, habit_name, target_days),
+    )
 
     conn.commit()
     conn.close()
@@ -19,9 +22,12 @@ def get_habits(user_id):
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("""
-    SELECT * FROM habits WHERE user_id=%s
-    """, (user_id,))
+    cursor.execute(
+        """
+        SELECT * FROM habits WHERE user_id=%s
+        """,
+        (user_id,),
+    )
 
     habits = cursor.fetchall()
     conn.close()
@@ -33,10 +39,31 @@ def mark_habit(habit_id):
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute("""
-    INSERT INTO habit_logs(habit_id, date, value)
-    VALUES (%s, %s, %s)
-    """, (habit_id, date.today(), 1))
+    cursor.execute(
+        """
+        INSERT INTO habit_logs(habit_id, date, value)
+        VALUES (%s, %s, %s)
+        """,
+        (habit_id, date.today(), 1),
+    )
 
     conn.commit()
     conn.close()
+
+
+def get_streak(habit_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT COUNT(*) FROM habit_logs
+        WHERE habit_id=%s
+        """,
+        (habit_id,),
+    )
+
+    streak = cursor.fetchone()[0]
+
+    conn.close()
+    return streak
