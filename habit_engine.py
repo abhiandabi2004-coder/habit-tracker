@@ -30,12 +30,12 @@ def get_habits(user_id):
     )
 
     habits = cursor.fetchall()
-    conn.close()
 
+    conn.close()
     return habits
 
 
-def mark_habit(habit_id):
+def mark_complete(habit_id):
     conn = connect_db()
     cursor = conn.cursor()
 
@@ -67,3 +67,25 @@ def get_streak(habit_id):
 
     conn.close()
     return streak
+
+
+def get_progress(user_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT habit_name, COUNT(habit_logs.id)
+        FROM habits
+        LEFT JOIN habit_logs
+        ON habits.id = habit_logs.habit_id
+        WHERE habits.user_id=%s
+        GROUP BY habit_name
+        """,
+        (user_id,),
+    )
+
+    data = cursor.fetchall()
+
+    conn.close()
+    return data
